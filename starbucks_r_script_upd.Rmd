@@ -1,0 +1,811 @@
+---
+title: "Starbucks Analysis"
+output: html_notebook
+---
+
+
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(ggmap)
+library(tidycensus)
+library(ggthemes)
+library(scales)
+library(maps)
+library(mapdata)
+library(ggplot2)
+library(maps)
+library(tigris)
+library(mapproj)
+library(readr)
+```
+
+```{r}
+starbucks_data <- read_csv('C:\\Users\\jbean\\Dropbox\\Other\\R\\Starbucks\\store_data.csv')
+```
+
+```{r}
+head(starbucks_data)
+
+str(starbucks_data)
+```
+
+```{r}
+starbucks_us <- starbucks_data %>%
+  filter(Country == 'US')
+```
+
+```{r}
+dim(starbucks_us)
+```
+
+```{r}
+starbucks_us <- starbucks_us %>%
+  rename('State' = 'State/Province')
+```
+
+```{r}
+starbucks_us$Postcode <- substr(starbucks_us$Postcode, start = 1, stop = 5)
+
+starbucks_us$Postcode <- str_pad(starbucks_us$Postcode, width = 5, side = 'left', pad = '0')
+```
+
+
+```{r}
+starbucks_us <- starbucks_us %>%
+  select(-c(`Store Number`, `Store Name`, `Phone Number`, Country, Timezone)) %>%
+  filter(Brand == 'Starbucks')
+```
+
+```{r}
+colnames(starbucks_us)[colnames(starbucks_us) == 'State.x'] <- 'State'
+```
+
+
+```{r}
+colSums(is.na(starbucks_us))
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+acs_data <- get_acs(geography = 'zcta', variables = c(total_population = 'B01001_001', 
+                                                 median_age = 'B01002_001', 
+                                                 male_25_29 = 'B01001_011',
+                                                 male_30_34 = 'B01001_012',
+                                                 male_35_39 = 'B01001_013',
+                                                 male_40_44 = 'B01001_014',
+                                                 male_45_49 = 'B01001_015',
+                                                 male_50_54 = 'B01001_016',
+                                                 male_55_59 = 'B01001_017',
+                                                 male_60_61 = 'B01001_018',
+                                                 male_62_64 = 'B01001_019',
+                                                 male_65_66 = 'B01001_020',
+                                                 male_67_69 = 'B01001_021',
+                                                 male_70_74 = 'B01001_022',
+                                                 male_75_79 = 'B01001_023',
+                                                 male_80_84 = 'B01001_024',
+                                                 male_85_plus = 'B01001_025',
+                                                 female_25_29 = 'B01001_035',
+                                                 female_30_34 = 'B01001_036',
+                                                 female_35_39 = 'B01001_037',
+                                                 female_40_44 = 'B01001_038',
+                                                 female_45_49 = 'B01001_039',
+                                                 female_50_54 = 'B01001_040',
+                                                 female_55_59 = 'B01001_041',
+                                                 female_60_61 = 'B01001_042',
+                                                 female_62_64 = 'B01001_043',
+                                                 female_65_66 = 'B01001_044',
+                                                 female_67_69 = 'B01001_045',
+                                                 female_70_74 = 'B01001_046',
+                                                 female_75_79 = 'B01001_047',
+                                                 female_80_84 = 'B01001_048',
+                                                 female_85_plus = 'B01001_049',
+                                                 leave_630_7 = 'B08011_006',
+                                                 leave_7_730 = 'B08011_007',
+                                                 leave_730_8 = 'B08011_008',
+                                                 leave_8_830 = 'B08011_009',
+                                                 leave_830_9 = 'B08011_010',
+                                                 walk_to_work = 'B08006_015',
+                                                 total_households = 'B11001_002',
+                                                 high_school_diploma = 'B15003_017',
+                                                 bachelors_degree = 'B15003_022',
+                                                 masters_degree = 'B15003_023',
+                                                 median_hh_income = 'B19013_001',
+                                                 income_hh_50_60 = 'B19001_011',
+                                                 income_hh_60_75 = 'B19001_012',
+                                                 income_hh_75_100 = 'B19001_013',
+                                                 income_hh_100_125 = 'B19001_014',
+                                                 income_hh_125_150 = 'B19001_015',
+                                                 income_hh_150_200 = 'B19001_016',
+                                                 income_hh_200_plus = 'B19001_017',
+                                                 male_workers = 'B23022_003',
+                                                 female_workers = 'B23022_027',
+                                                 renter_occupied = 'B25008_003',
+                                                 median_rent = 'B25031_001',
+                                                 median_home_value = 'B25077_001'
+                                                 ),
+              output = 'wide')
+```
+
+```{r}
+acs_data <- acs_data %>%
+  select(ends_with('E')) %>%
+  separate(NAME, into = c('zcta','zip_code')) %>%
+  select(-zcta)
+```
+
+
+```{r}
+acs_data <- acs_data %>%
+  mutate(male_25_49 = rowSums(acs_data[,4:8], na.rm = TRUE),
+         female_25_49 = rowSums(acs_data[, 19:23], na.rm = T),
+         total_25_49 = male_25_49 + female_25_49,
+         percent_25_49 = total_25_49 / total_populationE,
+         male_25_plus = rowSums(acs_data[,4:18], na.rm = T),
+         female_25_plus = rowSums(acs_data[,19:33], na.rm = T),
+         total_25_plus = male_25_plus + female_25_plus,
+         percent_25_plus = total_25_plus / total_populationE,
+         total_workers = male_workersE + female_workersE,
+         percent_workers = total_workers / total_populationE,
+         leave_7_9 = rowSums(acs_data[,34:39], na.rm = T),
+         percent_leave_7_9 = leave_7_9 / total_workers,
+         perc_hs_dipl = high_school_diplomaE / total_25_plus,
+         perc_bach_deg = bachelors_degreeE / total_25_plus,
+         perc_masters_deg = masters_degreeE / total_25_plus,
+         perc_income_hh_50_60 = income_hh_50_60E / total_householdsE,
+         perc_income_hh_60_75 = income_hh_60_75E / total_householdsE,
+         perc_income_hh_75_100 = income_hh_75_100E / total_householdsE,
+         perc_income_hh_100_125 = income_hh_100_125E / total_householdsE,
+         perc_income_hh_125_150 = income_hh_125_150E / total_householdsE,
+         perc_income_hh_150_200 = income_hh_150_200E / total_householdsE,
+         perc_renter_occupied = renter_occupiedE / total_populationE,
+         perc_walk_to_work = walk_to_workE / total_workers
+)
+
+```
+
+```{r}
+acs_slim <- acs_data %>%
+  select(zip_code, total_populationE, median_ageE, total_householdsE, median_hh_incomeE, median_rentE, median_home_valueE,
+         percent_25_49, percent_25_plus, total_workers, percent_workers, percent_leave_7_9, perc_hs_dipl, perc_bach_deg, perc_masters_deg, perc_income_hh_50_60, perc_income_hh_60_75, perc_income_hh_75_100, perc_income_hh_100_125, perc_income_hh_125_150, perc_income_hh_150_200, perc_renter_occupied, perc_walk_to_work)
+```
+
+```{r}
+starbucks_m <- starbucks_us %>%
+  left_join(acs_slim, by = c('Postcode' = 'zip_code'))
+```
+
+```{r}
+glimpse(starbucks_m)
+```
+
+```{r}
+round(colSums(is.na(starbucks_m)) / nrow(starbucks_m), 2)
+```
+
+```{r}
+fill_missing_cities <- function(dataframe) {
+  
+  df_to_return <- dataframe
+  
+for (i in 1:dim(df_to_return)[1]) {
+    
+    if (is.na(df_to_return[i, 'total_populationE'])) {
+      
+      filtered_df <- filter(df_to_return, City == c(df_to_return[i, 'City']), State == c(df_to_return[i, 'State']))
+      
+      if (dim(filtered_df)[1] > 0) {
+      
+      for (k in 1:ncol(df_to_return)) {
+        
+       if (is.na(df_to_return[i, k])) {
+
+        df_to_return[i, k] <- mean(filtered_df[[k]], na.rm = TRUE)
+      }
+      }
+    }
+    }
+}
+  
+  return(df_to_return)
+}
+```
+
+```{r warning=FALSE}
+starbucks_m <- fill_missing_cities(starbucks_m)
+```
+
+```{r}
+starbucks_m <- starbucks_m %>%
+  filter(!is.na(total_populationE), is.finite(percent_leave_7_9), is.finite(perc_income_hh_50_60), is.finite(perc_income_hh_60_75), is.finite(perc_income_hh_75_100), is.finite(perc_income_hh_100_125),is.finite(perc_income_hh_125_150),is.finite(perc_income_hh_150_200), is.finite(perc_walk_to_work))
+
+print(paste('The original data frame was', nrow(starbucks_us), 'rows. After filling missing values and removing the remaining NA values, the resulting data frame is', nrow(starbucks_m), 'rows. Approximately', round(100-(nrow(starbucks_m) / nrow(starbucks_us)) *100, 1), '% of values were removed.'))
+```
+
+```{r}
+summary(starbucks_m)
+```
+
+
+```{r}
+summary(acs_slim)
+```
+
+```{r}
+acs_slim <- acs_slim %>%
+  mutate(starbucks_flag = if_else(zip_code %in% starbucks_m$Postcode, 'Starbucks', 'Non-Starbucks'),
+         perc_income_hh_60_plus = rowSums(acs_slim[,17:21]))
+```
+
+```{r}
+acs_slim$starbucks_flag <- as_factor(acs_slim$starbucks_flag)
+```
+
+
+```{r fig.width=14, fig.height=10, echo=FALSE}
+
+require(gridExtra)
+
+
+plot1 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = median_hh_incomeE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Median Household Income') +
+  theme_economist() + 
+  scale_color_economist() +
+  scale_y_continuous(limits = quantile(acs_slim$median_hh_incomeE, c(0.1, 0.9), na.rm = T), label = dollar_format()) +
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot2 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = total_populationE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Total Population') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(acs_slim$total_populationE, c(0.1, 0.9)), label = comma)+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot3 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = perc_income_hh_60_plus, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Percentage of households with $60K+ income') +
+  ylim(0, 1) +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(acs_slim$perc_income_hh_60_plus, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot4 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = perc_bach_deg, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle("Percent with Bachelor's Degree") +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(acs_slim$perc_bach_deg, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot5 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = median_ageE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Median Age') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(acs_slim$median_ageE, c(0.1, 0.9), na.rm = T))+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot6 <- ggplot(data = acs_slim) +
+  geom_boxplot(aes(y = percent_workers, group = starbucks_flag, fill = starbucks_flag)) +
+  ggtitle('Percentage Working') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(acs_slim$percent_workers, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+  
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=2)
+
+```
+
+
+```{r}
+
+
+usa <- map_data('usa')
+states <- map_data('state')
+
+ggplot() +
+  geom_polygon(data = usa, aes(x = long, y = lat, group = group), fill = NA, color = 'blue') +
+  geom_polygon(data = states, aes(x = long, y = lat, fill = region, group = group), alpha = 0.3, color = 'white') +
+  guides(fill = FALSE) +
+  geom_point(data = starbucks_us, aes(x = Longitude, y = Latitude), color = 'blue', alpha = 0.15, size = 1) +
+  ylim(23, 50) +
+  xlim(-130, -65) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    legend.position = 'none',
+    axis.line=element_blank(),
+    axis.text.x=element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks=element_blank(),
+    axis.title.x=element_blank(),
+    axis.title.y=element_blank())
+
+```
+
+
+```{r}
+
+
+gusa <- map_data('state')
+
+head(gusa)
+```
+
+```{r}
+starbucks_us$long_state <- state.name[match(starbucks_us$State,state.abb)]
+
+starbucks_us$long_state <- tolower(starbucks_us$long_state)
+```
+
+
+```{r}
+count_by_state <- starbucks_us %>%
+  group_by(long_state) %>%
+  summarize(num_locations = n())
+
+count_by_state %>%
+  arrange(desc(num_locations))
+```
+
+```{r}
+state_centroids <- summarize(group_by(gusa, region),
+                             x = mean(range(long)), y = mean(range(lat)))
+
+sp <- select(count_by_state, region = long_state, num_locations)
+
+gusa_starbucks <- left_join(gusa, sp, 'region')
+```
+
+```{r}
+pop_by_state <- get_acs(geography = 'state', variables = c(total_population = 'B01001_001'))
+```
+
+```{r}
+pop_by_state <- pop_by_state %>%
+  select(NAME, estimate) %>%
+  mutate(NAME = tolower(NAME))
+```
+
+```{r}
+gusa_starbucks <- left_join(gusa_starbucks, pop_by_state, by = c('region' = 'NAME'))
+
+head(gusa_starbucks)
+```
+
+```{r}
+gusa_starbucks$pop_per_location <- gusa_starbucks$num_locations / gusa_starbucks$estimate
+```
+
+```{r}
+pop_per_loc <- select(gusa_starbucks, region, pop_per_location)
+pop_per_loc <- pop_per_loc %>%
+  filter(!duplicated(region))
+```
+
+```{r}
+arrange(pop_per_loc, desc(pop_per_location))
+```
+
+
+```{r}
+state_plus_loc <- left_join(state_centroids, pop_per_loc)
+```
+
+
+```{r}
+library(gridExtra)
+library(grid)
+
+grid.arrange(ggplot(gusa_starbucks) +
+    geom_polygon(aes(long, lat, group = group, fill = log(num_locations))) +
+    scale_fill_gradient(low = 'white', high = 'red') +
+    geom_point(aes(x, y, size = pop_per_location), color = 'blue', alpha = 0.75, data = state_plus_loc) +
+    scale_size_area() +
+      theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.border = element_blank(),
+    panel.background = element_blank(),
+    legend.position = 'none',
+    axis.line=element_blank(),
+    axis.text.x=element_blank(),
+    axis.text.y=element_blank(),
+    axis.ticks=element_blank(),
+    axis.title.x=element_blank(),
+    axis.title.y=element_blank()), 
+      bottom = textGrob("Note: Darker color = More locations; Larger circle = Higher locations per person ratio.", x = 1, 
+      hjust = 1, gp = gpar(fontface = 3L, fontsize = 9)))
+
+```
+
+
+Logistic Regression
+
+```{r}
+acs_logit <- acs_slim %>%
+  select(zip_code, total_populationE, median_ageE, median_hh_incomeE, percent_25_49, percent_workers, percent_leave_7_9, perc_bach_deg, perc_income_hh_60_plus, starbucks_flag)
+
+```
+
+```{r}
+acs_logit <- acs_logit[complete.cases(acs_logit), ]
+ 
+```
+
+```{r}
+acs_logit$starbucks_flag <- if_else(acs_logit$starbucks_flag == 'Starbucks', 1, 0)
+```
+
+
+```{r}
+acs_logit <- acs_logit[is.finite(acs_logit$percent_leave_7_9),]
+```
+
+```{r}
+glm.fit <- glm(starbucks_flag ~ total_populationE + median_ageE + median_hh_incomeE + percent_25_49 + percent_workers + percent_leave_7_9 + perc_bach_deg + perc_income_hh_60_plus, data = acs_logit, family = binomial)
+```
+
+```{r}
+summary(glm.fit)
+```
+
+```{r}
+glm.probs <- predict(glm.fit,type = "response")
+```
+
+```{r}
+results <- cbind(select(acs_logit, zip_code, starbucks_flag), glm.probs)
+```
+
+```{r}
+results$prediction <- if_else(results$glm.probs >= 0.5, 1, 0)
+
+results$correct <- if_else(results$starbucks_flag == results$prediction, 1, 0)
+```
+
+
+```{r}
+no_starbucks <- results %>%
+  filter(starbucks_flag == 0) %>%
+  arrange(desc(glm.probs))
+```
+
+```{r}
+head(no_starbucks)
+```
+
+
+```{r}
+county_zip <- read_csv('C:\\Users\\jbean\\Dropbox\\Other\\R\\Starbucks\\zip_county.csv')
+
+county_zip$ZIP <- as.character(county_zip$ZIP)
+county_zip$ZIP <- str_pad(county_zip$ZIP, width = 5, side = 'left', pad = '0')
+```
+
+```{r}
+no_starb_county <- left_join(no_starbucks, county_zip, by = c('zip_code' = 'ZIP'))
+```
+
+```{r}
+head(no_starb_county)
+```
+
+
+```{r}
+no_starb_county <- no_starb_county %>%
+  select(zip_code, starbucks_flag, glm.probs, COUNTYNAME, STATE)
+```
+
+```{r}
+options(tigris_use_cache = T)
+
+counties <- get_acs(geography = 'county',
+                     variables = 'B01001_001',
+                     geometry = T)
+```
+
+```{r}
+no_starb_county$long_state <- state.name[match(no_starb_county$STATE,state.abb)]
+
+(no_starb_county)
+```
+```{r}
+head(counties %>% separate(NAME, into = c('county','state'), sep = ', '))
+```
+
+```{r}
+
+counties_to_plot <- counties %>%
+  select(NAME, geometry) %>%
+  separate(NAME, into = c('county','state'), sep = ', ')  %>%
+  left_join(no_starb_county, by = c('county' = 'COUNTYNAME', 'state' = 'long_state')) %>%
+  select(county, state, starbucks_flag, glm.probs, geometry)
+```
+
+```{r}
+head(counties_to_plot)
+```
+
+
+```{r}
+county_probs <- counties_to_plot %>%
+  group_by(county, state) %>%
+  summarize(county_prob = sum(glm.probs)) %>%
+  select(-geometry)
+```
+
+```{r}
+probs_county <- data_frame(county = county_probs$county, state = county_probs$state, county_prob = county_probs$county_prob)
+```
+
+```{r}
+probs_county <- probs_county %>%
+  mutate(county_prob = (probs_county$county_prob - min(probs_county$county_prob, na.rm=T)) / (max(probs_county$county_prob, na.rm = T) - min(probs_county$county_prob, na.rm = T)))
+```
+
+```{r}
+head(counties_to_plot)
+```
+
+
+```{r}
+counties_to_plot <- counties_to_plot %>%
+  left_join(probs_county, by = c('county' = 'county', 'state' = 'state')) %>%
+  select(county, state, starbucks_flag, county_prob, geometry, glm.probs)
+```
+
+```{r}
+counties_to_plot <- counties_to_plot[!duplicated(counties_to_plot$geometry),]
+```
+
+```{r}
+counties_to_plot$ranked <- rank(-counties_to_plot$county_prob)
+```
+
+```{r}
+head(counties_to_plot)
+```
+
+
+
+```{r}
+normalize <- function(x) {
+num <- x - min(x)
+denom <- max(x) - min(x)
+return (num/denom)
+}
+```
+
+```{r}
+summary(counties_to_plot$glm.probs)
+```
+
+
+```{r fig.width=16, fig.height=12, echo=FALSE}
+ggplot(data = counties_to_plot) +
+  geom_sf(aes(fill = glm.probs)) +
+  xlim(-124, -68) +
+  ylim(25, 50) +
+  scale_fill_gradient2(high = muted('green'), low = 'red', mid = 'white', midpoint = 0.12949) +
+  coord_sf(datum = NA) +
+  theme_void() +
+  theme(legend.position = 'none')
+
+```
+
+
+```{r fig.width=16, fig.height=12, echo=FALSE}
+ggplot(data = counties_to_plot) +
+  geom_sf(aes(fill = ranked)) +
+  xlim(-124, -68) +
+  ylim(25, 50) +
+  scale_fill_gradient2(low = muted('green'), high = 'red', mid = 'white', midpoint = 1600) +
+  coord_sf(datum = NA) +
+  theme_void() +
+  theme(legend.position = 'none')
+
+```
+
+
+```{r}
+
+acs_similarity <- acs_slim[complete.cases(acs_slim), ]
+acs_similarity_vars <- select(acs_similarity, -c(zip_code, starbucks_flag))
+
+
+
+acs_similarity_vars <- as.data.frame(lapply(acs_similarity_vars, normalize))
+acs_similarity_vars$starbucks_flag <- acs_similarity$starbucks_flag
+
+```
+
+```{r}
+starbucks_vector <- acs_similarity_vars %>%
+  filter(starbucks_flag == 'Starbucks') %>%
+  select(-starbucks_flag)
+
+starbucks_vector <- apply(starbucks_vector, 2, median)
+
+acs_similarity_vars <- select(acs_similarity_vars, -starbucks_flag)
+
+```
+
+```{r}
+
+distances <- dist(rbind(starbucks_vector, acs_similarity_vars))[1:nrow(acs_similarity_vars)]
+```
+
+```{r}
+acs_similarity_vars$distances <- distances
+acs_similarity_vars$starbucks_flag <- acs_similarity$starbucks_flag
+acs_similarity_vars$zip_code <- acs_similarity$zip_code
+```
+
+```{r}
+acs_similarity_vars %>%
+  filter(starbucks_flag == 'Non-Starbucks') %>%
+  select(zip_code, distances) %>%
+  arrange(distances)
+  
+```
+
+```{r}
+top_similarity_medians <- acs_slim %>% 
+  filter(zip_code %in% (acs_similarity_vars %>%
+  filter(starbucks_flag == 'Non-Starbucks') %>%
+  select(zip_code, distances) %>%
+  arrange(distances))[1:100,'zip_code'])
+  
+similarity_starbucks <- acs_slim %>%
+  filter(starbucks_flag == 'Starbucks')
+
+```
+
+```{r}
+similarity_df <- rbind(similarity_starbucks, top_similarity_medians)
+
+similarity_df
+```
+
+
+```{r fig.width=14, fig.height=10, echo=FALSE}
+plot1 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = median_hh_incomeE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Median Household Income') +
+  theme_economist() + 
+  scale_color_economist() +
+  scale_y_continuous(limits = quantile(similarity_df$median_hh_incomeE, c(0.1, 0.9), na.rm = T), label = dollar_format()) +
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot2 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = total_populationE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Total Population') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(similarity_df$total_populationE, c(0.1, 0.9)), label = comma)+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot3 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = perc_income_hh_60_plus, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Percentage of households with $60K+ income') +
+  ylim(0, 1) +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(similarity_df$perc_income_hh_60_plus, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot4 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = perc_bach_deg, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle("Percent with Bachelor's Degree") +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(similarity_df$perc_bach_deg, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot5 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = median_ageE, group = starbucks_flag, fill = starbucks_flag), outlier.shape = NA) +
+  ggtitle('Median Age') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(similarity_df$median_ageE, c(0.1, 0.9), na.rm = T))+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+
+plot6 <- ggplot(data = similarity_df) +
+  geom_boxplot(aes(y = percent_workers, group = starbucks_flag, fill = starbucks_flag)) +
+  ggtitle('Percentage Working') +
+  theme_economist() + 
+  scale_color_economist() +
+  theme(legend.position = 'none') +
+  scale_y_continuous(limits = quantile(similarity_df$percent_workers, c(0.1, 0.9), na.rm = T), label = percent_format())+
+  ylab('') +
+  theme(axis.text.x=element_blank())
+  
+grid.arrange(plot1, plot2, plot3, plot4, plot5, plot6, ncol=2)
+
+```
+
+```{r}
+dist_to_plot <- acs_similarity_vars %>%
+  select(distances, starbucks_flag, zip_code)
+```
+
+```{r}
+head(county_zip)
+```
+
+```{r}
+dist_to_plot <- dist_to_plot %>%
+  left_join((county_zip %>%
+               select(ZIP, STATE)), by = c('zip_code' = 'ZIP'))
+```
+
+
+```{r}
+top_20_perc_dist <- dist_to_plot %>%
+  arrange(distances) %>%
+  filter(starbucks_flag == 'Non-Starbucks', distances < quantile(dist_to_plot$distances, 0.20)) %>%
+  group_by(STATE) %>%
+  summarize(state_count = n()) %>%
+  arrange(desc(state_count))
+```
+
+```{r}
+head(top_20_perc_dist, 10)
+```
+
+
+```{r fig.width=14, fig.height=10, echo=FALSE}
+top_20_perc_dist %>%
+  filter(STATE != 'NA') %>%
+  arrange(desc(state_count)) %>%
+  mutate(STATE=fct_reorder(STATE,state_count)) %>% 
+  
+ggplot(aes(x=STATE, y=state_count, label=state_count, fill = STATE)) + 
+  geom_point(stat='identity', fill="lightgreen", color = 'lightgreen')  +
+  geom_segment(aes(y = 0, 
+                   x = STATE, 
+                   yend = state_count, 
+                   xend = STATE), 
+               color = "lightblue",
+               size = 4) +
+  geom_text(color="Black", size=4.5) +
+  labs(title="Top 20th Percentile Non-Starbucks Zip Codes by State") +
+  ylab('Count of Locations') +
+  coord_flip()
+```
+
